@@ -131,7 +131,22 @@ def delete_user(user_id):
 
 @app.route("/blog_post/<user_id>", methods=["POST"])
 def create_blog_post(user_id):
-    pass
+    data = request.get_json()
+
+    # user_id passed must be valid user
+    user = User.query.filter_by(id=user_id).first()
+    if not user:
+        return jsonify({"message": "User does not exist!"}), 400
+
+    new_blog_post = BlogPost(
+        title=data["title"],
+        body=data["body"],
+        date=now,
+        user_id=user_id
+    )
+    db.session.add(new_blog_post)
+    db.session.commit()
+    return jsonify({"message": "New Blog Post Created"}), 200
 
 
 @app.route("/blog_post/<blog_post_id>", methods=["GET"])
