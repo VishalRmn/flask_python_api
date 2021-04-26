@@ -5,7 +5,9 @@ from sqlalchemy.engine import Engine
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 import linked_list
-
+import hashtable
+import random
+import binarysearchtree
 
 # app
 app = Flask(__name__)
@@ -138,20 +140,87 @@ def create_blog_post(user_id):
     if not user:
         return jsonify({"message": "User does not exist!"}), 400
 
+    # new_blog_post = BlogPost(
+    #     title=data["title"],
+    #     body=data["body"],
+    #     date=now,
+    #     user_id=user_id
+    # )
+    # db.session.add(new_blog_post)
+    # db.session.commit()
+    # return jsonify({"message": "New Blog Post Created"}), 200
+
+    ht = hashtable.HashTable(10)
+
+    ht.add_key_value("title", data["title"])
+    ht.add_key_value("body", data["body"])
+    ht.add_key_value("date", now)
+    ht.add_key_value("user_id", user_id)
+
     new_blog_post = BlogPost(
-        title=data["title"],
-        body=data["body"],
-        date=now,
-        user_id=user_id
+        title=ht.get_value("title"),
+        body=ht.get_value("body"),
+        date=ht.get_value("date"),
+        user_id=ht.get_value("user_id"),
     )
     db.session.add(new_blog_post)
     db.session.commit()
-    return jsonify({"message": "New Blog Post Created"}), 200
+    return jsonify({"message": "new blog post created"}), 200
+
+
+@app.route("/blog_posts", methods=["GET"])
+def get_all_blog_posts():
+    blog_posts = BlogPost.query.all()
+    return jsonify(blog_posts)
 
 
 @app.route("/blog_post/<blog_post_id>", methods=["GET"])
 def get_one_blog_post(blog_post_id):
-    pass
+    blog_posts = BlogPost.query.all()
+    random.shuffle(blog_posts)  # So that BST is not skewed
+
+    bst = binarysearchtree.BinarySearchTree()
+    blog_count = 0
+    for post in blog_posts:
+        # print(post.id)
+        # print("\n")
+        #blog_count += 1
+        bst.insert({
+            "id": post.id,
+            "title": post.title,
+            "body": post.body,
+            "user_id": post.user_id
+        })
+
+    #print(f"No. of Blogs: {blog_count}")
+    post = bst.search(blog_post_id)
+    if not post:
+        return jsonify({"message": "Post not found!"})
+
+    return jsonify(post)
+
+
+@app.route("/blog_post/<blog_post_id>", methods=["DELETE"])
+def delete_one_blog_post(blog_post_id):
+    blog_posts = BlogPost.query.all()
+    random.shuffle(blog_posts)  # So that BST is not skewed
+
+    bst = binarysearchtree.BinarySearchTree()
+    for post in blog_posts:
+        bst.insert({
+            "id": post.id,
+            "title": post.title,
+            "body": post.body,
+            "user_id": post.user_id
+        })
+
+    post = bst.search(blog_post_id)
+    if not post:
+        return jsonify({"message": "Post not found!"})
+
+    db.session.delete(post)
+    db.session.commit()
+    return jsonify({"message": "Post deleted successfully!"}), 200
 
 
 if __name__ == "__main__":
