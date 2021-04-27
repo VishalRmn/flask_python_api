@@ -8,6 +8,8 @@ import linked_list
 import hashtable
 import random
 import binarysearchtree
+import queue
+import stack
 
 # app
 app = Flask(__name__)
@@ -126,9 +128,11 @@ def get_one_user(user_id):
 @app.route("/user/<user_id>", methods=["DELETE"])
 def delete_user(user_id):
     user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return jsonify({"message": "User not found."}), 404
     db.session.delete(user)
     db.session.commit()
-    return jsonify({}), 200
+    return jsonify({"message": "User (and his blogs) deleted successfully."}), 200
 
 
 @app.route("/blog_post/<user_id>", methods=["POST"])
@@ -165,13 +169,24 @@ def create_blog_post(user_id):
     )
     db.session.add(new_blog_post)
     db.session.commit()
-    return jsonify({"message": "new blog post created"}), 200
+    return jsonify({"message": "New blog post created successfully."}), 200
 
 
 @app.route("/blog_posts", methods=["GET"])
 def get_all_blog_posts():
     blog_posts = BlogPost.query.all()
-    return jsonify(blog_posts)
+    #blog_posts = BlogPost.query.filter_by(id='5').first()
+    #print(f"id: {blog_posts.id}, title: {blog_posts.title}, body: {blog_posts.body}, user_id: {blog_posts.user_id}")
+    all_posts = []
+    for post in blog_posts:
+        all_posts.append({
+            "id": post.id,
+            "title": post.title,
+            "body": post.body,
+            "user_id": post.user_id
+        })
+
+    return jsonify(all_posts)
 
 
 @app.route("/blog_post/<blog_post_id>", methods=["GET"])
@@ -200,25 +215,56 @@ def get_one_blog_post(blog_post_id):
     return jsonify(post)
 
 
-@app.route("/blog_post/<blog_post_id>", methods=["DELETE"])
-def delete_one_blog_post(blog_post_id):
-    blog_posts = BlogPost.query.all()
-    random.shuffle(blog_posts)  # So that BST is not skewed
+@app.route("/blog_post/numeric_body", methods=["GET"])
+def get_numeric_post_bodies():
+    blogposts = BlogPost.query.all()
+    q = queue.Queue()
+    for post in blogposts:
+        q.enqueue(post)
 
-    bst = binarysearchtree.BinarySearchTree()
-    for post in blog_posts:
-        bst.insert({
-            "id": post.id,
-            "title": post.title,
+    return_list = []
+
+    for i in range(len(blogposts)):
+        post = q.dequeue()
+        numeric_body = 0
+        for char in post.data.body:
+            numeric_body += ord(char)
+
+        post.body = numeric_body
+        return_list.append({
+            "id": post.data.id,
+            "title": post.data.title,
             "body": post.body,
-            "user_id": post.user_id
+            "user_id": post.data.user_id
         })
 
-    post = bst.search(blog_post_id)
-    if not post:
-        return jsonify({"message": "Post not found!"})
+    return jsonify(return_list)
 
+
+@app.route("/blog_post/<blog_post_id>", methods=["DELETE"])
+def delete_one_blog_post(blog_post_id):
+    post = BlogPost.query.filter_by(id=blog_post_id).first()
+    if post is None:
+        return jsonify({"message": "Post not found!"}), 404
+    # print("Post =", post)
     db.session.delete(post)
+    db.session.commit()
+    return jsonify({"message": "Post deleted successfully!"}), 200
+
+
+@app.route("/blog_post/delete_last_blog_post", methods=["DELETE"])
+def delete_last_blog_post():
+    blog_posts = BlogPost.query.all()
+
+    if blog_posts is None:
+        return jsonify({"message": "No posts found!"}), 404
+    blog_stack = stack.Stack()
+    for post in blog_posts:
+        blog_stack.push(post)
+
+    post_to_delete = blog_stack.pop()
+    # print("post_to_delete:", post_to_delete)
+    db.session.delete(post_to_delete.data)
     db.session.commit()
     return jsonify({"message": "Post deleted successfully!"}), 200
 

@@ -44,6 +44,7 @@ class BinarySearchTree:
                 return False
             node = node.right
             return self.search_recursive(blog_post_id, node)
+        return False
 
     def search(self, blog_post_id):
         if self.root is None:
